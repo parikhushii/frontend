@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Friending, Posting, Sessioning } from "./app";
+import { Authing, Friending, Posting, Sessioning, Circling } from "./app";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
@@ -151,6 +151,28 @@ class Routes {
     const user = Sessioning.getUser(session);
     const fromOid = (await Authing.getUserByUsername(from))._id;
     return await Friending.rejectRequest(fromOid, user);
+  }
+
+  @Router.post("/circles")
+  async addToCircle(session: SessionDoc, name: string, friend: string) {
+    const owner = Sessioning.getUser(session);
+    const item = (await Authing.getUserByUsername(friend))._id;
+
+    // Verify that this friend is already in the user's circles (bypassing this for A5 Alpha)
+    // await Circling.assertAlreadyLabeled(owner, item);
+    await Circling.assertGoodName(name, ["Default"]);
+    return await Circling.addLabel(owner, name, item);
+  }
+
+  @Router.patch("/circles")
+  async removeFromCircle(session: SessionDoc, friend: string) {
+    const owner = Sessioning.getUser(session);
+    const item = (await Authing.getUserByUsername(friend))._id;
+
+    const circles = await Circling.getLabelsOnItem(owner, item);
+    circles.forEach(async (circle) => await Circling.deleteLabel(circle._id));
+
+    return await Circling.addLabel(owner, "Default", item);
   }
 }
 
